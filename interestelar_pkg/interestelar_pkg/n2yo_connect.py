@@ -22,6 +22,7 @@ satelite_lista = []
 node = None
 pub = None
 pos = 0
+aux = True
 
 
 #=== Variables Config ===
@@ -44,12 +45,15 @@ CAMPOS = ['satlatitude', 'satlongitude', 'sataltitude',
 
 #====================== API Connection =====================
 def api_connect():
+    global aux
     url = (f'https://api.n2yo.com/rest/v1/satellite/positions/'
            f'{NORAD_ID}/{LATITUD}/{LONGITUD}/{ALTITUD}/{N_SEGUNDOS}/&apiKey={API_KEY}')
-    pos = requests.get(url, timeout=5.0)
-    pos.raise_for_status()
+    posi = requests.get(url, timeout=5.0)
+    posi.raise_for_status()
+
+    if aux: print("Conectado a la API con exito")
     
-    return pos.json()
+    return posi.json()
 
 
 #====================== Read Saved Timestaps=====================
@@ -126,7 +130,7 @@ def read_position(data):
 #=================== Take Positions ==========================
 def config_positions(lista):
     global satelite_lista
-    satelite_lista = []
+   
     
     for i in lista:
         satelite_lista.append( read_position(i))
@@ -144,13 +148,14 @@ def show_data(datos):
 
 #============================ Interface ==============================
 def interface(input_command):
-    
+    global aux
     try:
 
         match input_command:
             #-----------------------------------------------------------
             case 1: #Write positions 
                 data = api_connect()
+                aux = False
                 
                 if 'positions' not in data:
                     node.get_logger().error(f'Error de la API: {data}')
@@ -167,12 +172,13 @@ def interface(input_command):
                 if not datos:
                     print('No hay datos guardados todavía.')
                     return
-                if satelite_lista == None:
-                    config_positions(datos)
+                
+                config_positions(datos)
                 
             #-----------------------------------------------------------
             case 3:#Live positions
                 data = api_connect()
+                aux = False
                 if 'positions' not in data:
                     print(f'Error de la API: {data}')
                 else:
@@ -187,10 +193,10 @@ def to_Twist(sat):
     
     data.linear.x = sat.latitud_satelite
     data.linear.y = sat.longitud_satelite
-    data.linear.z = sat.eclipsed
+    data.linear.z = float(sat.eclipsed)
     data.angular.x = sat.azimuth
     data.angular.y = sat.elevacion
-    data.angular.z = sat.timestamp
+    data.angular.z = float(sat.timestamp)
 
     return data
 
@@ -198,7 +204,7 @@ def to_Twist(sat):
 def timmer_read_data():
     global pos
     # 1.Write data  - 2.Read saved data  - 3.Read live data
-    mode_comunication = 2 
+    mode_comunication = 3
     pos = 0
 
     #Interface
@@ -207,7 +213,11 @@ def timmer_read_data():
 #============================ Timmer 2 publish ==============================
 def callTime():
     global pub
+    global pos
 
+    if pos >= len(satelite_lista):
+        return
+    
     pub.publish(to_Twist(satelite_lista[pos]))
     pos = pos + 1
     
@@ -224,8 +234,12 @@ def main():
     node = rclpy.create_node("n2yo_api")
     pub = node.create_publisher(Twist,"/satelite",10)
 
+    print("==================================================")
+    print("   I N T E R E S T E L A R     P R O Y E C E T")
+    print("==================================================")
+
     #Create a timer
-    node.create_timer(290,timmer_read_data)
+    node.create_timer(10,timmer_read_data)
     node.create_timer(1,callTime)
     
 

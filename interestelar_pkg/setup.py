@@ -24,7 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'n2yo_connect = interestestelar_pkg.n2yo_connect:main'
+            'n2yo_connect = interestelar_pkg.n2yo_connect:main'
         ],
     },
 )

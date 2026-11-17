@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<robot name="r1_bot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:macro name="robot" params="link1 link2 link3 joint1 joint2">
+
+        <!-- ================ Base ================-->
+        <link name="${link1}">
+            <visual>
+                <geometry>
+                    <mesh filename="package://interestelar_pkg/URDF/meshes/pt1.stl"/>
+                </geometry>
+            </visual>
+            <collision>
+                <origin xyz=" 0 0 0.130116" />
+                <geometry>
+                    <box size="0.15069 0.195535 0.209874" />
+                </geometry>
+            </collision>
+            <inertia>
+                <inertia ixx="0.0" ixy="-0.0" ixz="0.0" 
+                         iyy="0.0" iyz="0.0" izz="0.0"/>
+            </inertia>
+        </link>
+
+        <!-- ================ Grado1 ================-->
+        <link name="${link2}">
+            <visual>
+                <geometry>
+                    <mesh filename="package://interestelar_pkg/URDF/meshes/pt2.stl"/>
+                </geometry>
+            </visual>
+            <collision>
+            <origin xyz="-0.091046 0 0.031817" />
+                <geometry>
+                    <box size="0.123753 0.05885 0.05885" />
+                </geometry>
+            </collision>
+            <inertia>
+                <inertia ixx="0.0" ixy="-0.0" ixz="0.0" 
+                         iyy="0.0" iyz="0.0" izz="0.0"/>
+            </inertia>
+        <link />
+
+        <!-- ================ Grado 2 ================-->
+        <link name="${link3}">
+            <visual>
+                <geometry>
+                    <mesh filename="package://interestelar_pkg/URDF/meshes/pt2.stl"/>
+                </geometry>
+            </visual>
+            <collision>
+                <geometry>
+                    <cylinder radius="0.324" length="0.162466" />
+                </geometry>
+            </collision>
+            <inertia>
+                <inertia ixx="0.0" ixy="-0.0" ixz="0.0" 
+                         iyy="0.0" iyz="0.0" izz="0.0"/>
+            </inertia>
+        </link>
+    </xacro:macro>
+
+    <!-- ================ joints ================-->
+    <joint name="${joint1}">
+        <parent link="${link1}" />
+        <child link="${link2}" />
+        <origin xyz="0.0265 0 0.256307" />
+        <axis xyz="0 0 1" />
+        <limit lower="0" upper="3.14159265" effort="1.1048" velocity="1" />
+    </joint>
+    
+    <joint name="${joint1}">
+        <parent link="${link2}" />
+        <child link="${link3}" />
+        <origin xyz="-0.19257 0.001622 0.032523" />
+        <axis xyz="0 0 1" />
+        <limit lower="0" upper="3.14159265" effort="1.1048" velocity="1" />
+    </joint>
+    
+    
+</robot>
