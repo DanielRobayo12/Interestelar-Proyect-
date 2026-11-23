@@ -1,9 +1,19 @@
+"""Puente ROS 2 <-> PIC (serial 9600 8N1, comandos ASCII).
+
+ROS -> PIC
+  * /satelite/look_angles (Float64MultiArray, de n2yo_connect):
+        data = [azimut_deg, elevacion_deg, eclipsado]  ->  linea  G<az>,<el>
+    (source:=twist usa en cambio un Twist en /satelite, ver parametros)
+  * /satelite/cmd (String): se envia tal cual al PIC (A90, E30, P0.8, S, Z, X...)
+PIC -> ROS
+  * Cada linea que manda el PIC se publica en /satelite/rx (String).
+"""
 import math
 
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, TwistStamped
-from std_msgs.msg import String
+from std_msgs.msg import Float64MultiArray, String
 import serial
 
 MAX_LINE = 23   # LARGO_LINEA (24) del firmware menos el '\0'
@@ -28,7 +38,9 @@ class SerialBridge(Node):
 
         self.declare_parameter('port', '/dev/ttyUSB0')
         self.declare_parameter('baud', 9600)
-        self.declare_parameter('topic_twist', '/satelite')
+        self.declare_parameter('source', 'look_angles')   # 'look_angles' | 'twist'
+        self.declare_parameter('topic_in', '')            # '' = segun source
+        self.declare_parameter('min_elevation_deg', -90.0)  # -90 = sin filtro
         self.declare_parameter('topic_cmd', '/satelite/cmd')
         self.declare_parameter('topic_rx', '/satelite/rx')
         self.declare_parameter('stamped', False)
@@ -47,6 +59,12 @@ class SerialBridge(Node):
         self.units = p('units').value
         self.deadband = p('deadband_deg').value
         self.stamped = p('stamped').value
+        self.source = p('source').value
+        self.min_el = p('min_elevation_deg').value
+        if self.source not in ('look_angles', 'twist'):
+            raise ValueError('source debe ser "look_angles" o "twist"')
+        topic_in = p('topic_in').value or (
+            '/satelite/look_angles' if self.source == 'look_angles' else '/satelite')
 
         for f in (self.az_field, self.el_field):
             if f not in VALID_FIELDS:
@@ -59,8 +77,11 @@ class SerialBridge(Node):
         self.pending = None        # (az, el) mas reciente recibido por ROS
         self.last_sent = None      # (az, el) ultimo enviado al PIC
 
-        twist_type = TwistStamped if self.stamped else Twist
-        self.create_subscription(twist_type, p('topic_twist').value, self.on_twist, 10)
+        if self.source == 'look_angles':
+            self.create_subscription(Float64MultiArray, topic_in, self.on_look_angles, 10)
+        else:
+            twist_type = TwistStamped if self.stamped else Twist
+            self.create_subscription(twist_type, topic_in, self.on_twist, 10)
         self.create_subscription(String, p('topic_cmd').value, self.on_cmd, 10)
         self.pub_rx = self.create_publisher(String, p('topic_rx').value, 10)
 
@@ -71,8 +92,7 @@ class SerialBridge(Node):
 
         self.get_logger().info(
             f'Puente listo: {self.port}@{self.baud} | '
-            f'{p("topic_twist").value} ({"TwistStamped" if self.stamped else "Twist"}) '
-            f'az={self.az_field} el={self.el_field} [{self.units}] -> G | '
+            f'{topic_in} ({self.source}) [{self.units}] -> G | '
             f'{p("topic_cmd").value} -> serial | serial -> {p("topic_rx").value}')
 
     # ---------- Serial ----------
@@ -140,12 +160,24 @@ class SerialBridge(Node):
     # ---------- ROS -> PIC ----------
     def on_twist(self, msg):
         twist = msg.twist if self.stamped else msg
-        az = get_field(twist, self.az_field)
-        el = get_field(twist, self.el_field)
+        self.set_target(get_field(twist, self.az_field),
+                        get_field(twist, self.el_field))
+
+    def on_look_angles(self, msg):
+        # data = [azimut, elevacion, eclipsado]  (n2yo_connect)
+        if len(msg.data) < 2:
+            self.get_logger().warn('look_angles con menos de 2 valores, ignorado',
+                                   throttle_duration_sec=5.0)
+            return
+        self.set_target(float(msg.data[0]), float(msg.data[1]))
+
+    def set_target(self, az, el):
         if not (math.isfinite(az) and math.isfinite(el)):
             return
         if self.units == 'rad':
             az, el = math.degrees(az), math.degrees(el)
+        if el < self.min_el:       # p. ej. satelite bajo el horizonte
+            return
         self.pending = (az, el)
 
     def flush_goto(self):
