@@ -1,11 +1,15 @@
 <?xml version="1.0"?>
-<robot name="r1_bot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+<robot name="interestelar_bot" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-    <xacro:macro name="robot" params="link1 link2 link3 joint1 joint2">
+    <xacro:include filename="colors.urdf.xacro" />
+    <xacro:materials/>
+
+    <xacro:macro name="antena" params="link1 link2 link3 joint1 joint2">
 
         <!-- ================ Base ================-->
         <link name="${link1}">
             <visual>
+                <material name="aluminio" />
                 <geometry>
                     <mesh filename="package://interestelar_pkg/URDF/meshes/pt1.stl"/>
                 </geometry>
@@ -15,16 +19,18 @@
                 <geometry>
                     <box size="0.15069 0.195535 0.209874" />
                 </geometry>
-            </collision>
-            <inertia>
-                <inertia ixx="0.0" ixy="-0.0" ixz="0.0" 
-                         iyy="0.0" iyz="0.0" izz="0.0"/>
-            </inertia>
+            </collision>    
+            <inertial>
+            <mass value="4.5"/>
+                <inertia ixx="0.07257157" ixy="-0.00019076" ixz="0.00582191"
+                         iyy="0.07167318" iyz="0.00088020"  izz="0.02322033"/>
+            </inertial>
         </link>
 
         <!-- ================ Grado1 ================-->
         <link name="${link2}">
             <visual>
+                <material name="aluminio" />
                 <geometry>
                     <mesh filename="package://interestelar_pkg/URDF/meshes/pt2.stl"/>
                 </geometry>
@@ -35,47 +41,53 @@
                     <box size="0.123753 0.05885 0.05885" />
                 </geometry>
             </collision>
-            <inertia>
-                <inertia ixx="0.0" ixy="-0.0" ixz="0.0" 
-                         iyy="0.0" iyz="0.0" izz="0.0"/>
-            </inertia>
-        <link />
+            <inertial>
+            <mass value="1.048"/>
+                 <inertia ixx="0.00076503" ixy="-0.00001632" ixz="-0.00042605"
+                          iyy="0.00424526" iyz="0.00000251"  izz="0.00408599"/>
+            </inertial>
+        </link>
 
         <!-- ================ Grado 2 ================-->
-        <link name="${link3}">
-            <visual>
-                <geometry>
-                    <mesh filename="package://interestelar_pkg/URDF/meshes/pt2.stl"/>
-                </geometry>
-            </visual>
-            <collision>
-                <geometry>
-                    <cylinder radius="0.324" length="0.162466" />
-                </geometry>
-            </collision>
-            <inertia>
-                <inertia ixx="0.0" ixy="-0.0" ixz="0.0" 
-                         iyy="0.0" iyz="0.0" izz="0.0"/>
-            </inertia>
-        </link>
+        <link name="${link3}" type="rotative">
+                <visual>
+                    <material name="TopBlack" />
+                    <geometry>
+                        <mesh filename="package://interestelar_pkg/URDF/meshes/pt3.stl"/>
+                    </geometry>
+                </visual>
+                <collision>
+                    <geometry>
+                        <cylinder radius="0.324" length="0.162466" />
+                    </geometry>
+                </collision>
+                <inertial>
+                <mass value="3.5"/>
+                    <inertia ixx="0.50653468" ixy="0.00197499" ixz="-0.00000140"
+                             iyy="0.04908598" iyz="-0.00032542" izz="0.50516007"/>
+                </inertial>
+            </link>
+
+            <!-- ================ joints ================-->
+        <joint name="${joint1}" type="revolute">
+            <parent link="${link1}" />
+            <child link="${link2}" />
+            <origin xyz="0.0265 0 0.256307" />
+            <axis xyz="0 0 1" />
+            <limit lower="0" upper="6.283185" effort="1.1048" velocity="1" />
+        </joint>
+        
+        <joint name="${joint2}" type="revolute">
+            <parent link="${link2}" />
+            <child link="${link3}" />   
+            <origin xyz="-0.19257 0.001622 0.032523" />
+            <axis xyz="1 0 0" />
+            <limit lower="0" upper="6.283185" effort="1.1048" velocity="1" />
+        </joint>
+
     </xacro:macro>
 
-    <!-- ================ joints ================-->
-    <joint name="${joint1}">
-        <parent link="${link1}" />
-        <child link="${link2}" />
-        <origin xyz="0.0265 0 0.256307" />
-        <axis xyz="0 0 1" />
-        <limit lower="0" upper="3.14159265" effort="1.1048" velocity="1" />
-    </joint>
     
-    <joint name="${joint1}">
-        <parent link="${link2}" />
-        <child link="${link3}" />
-        <origin xyz="-0.19257 0.001622 0.032523" />
-        <axis xyz="0 0 1" />
-        <limit lower="0" upper="3.14159265" effort="1.1048" velocity="1" />
-    </joint>
     
     
 </robot>

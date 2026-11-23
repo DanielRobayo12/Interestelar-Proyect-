@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<robot name="interestelar_bot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:macro name="tripode" params="link">
+
+        <link name="${link}">
+            <visual>
+                <material name="SonarYellow" />
+                <geometry>
+                    <mesh filename="package://interestelar_pkg/URDF/meshes/tripode.stl"/>
+                </geometry>
+            </visual>
+            <collision>
+                <!-- <origin xyz="0.000988 0 0.605913" /> -->
+                <origin xyz="0 0 0" />
+                <geometry>
+                    <box size="0.169879 0.169879 1.20059" />
+                </geometry>
+            </collision>
+            <inertia>
+               <inertial>
+                <origin xyz="-0.000033171309 -0.0022154297 0.68195685"/>
+                <mass value="14.504389"/>
+                <inertia ixx="1.5894993" iyy="1.589454" izz="0.63176477" ixy="6.696497e-8" ixz="-8.8938259e-7" iyz="-0.004046545"/>
+                </inertial>
+            </inertia>
+        </link>
+
+    </xacro:macro>
+    
+   
+    
+</robot>
