@@ -3,10 +3,10 @@ import os
 import requests
 import csv
 import time
-import json
 from rclpy.node import Node
 from sensor_msgs.msg import NavSatFix, NavSatStatus
-from std_msgs.msg import Float64MultiArray, Int32, String
+from std_msgs.msg import Float64MultiArray
+from geometry_msgs.msg import Twist
 from dataclasses import dataclass
 
 #=== Global Variables ===
@@ -25,20 +25,19 @@ satelite_lista = []
 node = None
 pub_fix = None      # /satelite              (sensor_msgs/NavSatFix)
 pub_look = None     # /satelite/look_angles  (std_msgs/Float64MultiArray)
-pub_info = None     # /satelite/info         (std_msgs/String, JSON {satid, satname})
-info_json = ''      # ultimo info recibido de la API, se republica cada segundo
 pos = 0
 aux = True
 
 
 #=== Variables Config ===
 API_KEY = os.environ.get('N2YO_API_KEY', '')
-NORAD_ID = 25544 #ISS ID
+NORAD_ID = 69427 #ISS ID
 N_SEGUNDOS = 300
 
 LATITUD = 4.627125
 LONGITUD = -74.064183
 ALTITUD = 2600           #Coordenadas de edificio ingenieria
+
 
 CARPETA = os.path.expanduser("~/Projects/Interestelar/src/interestelar_pkg/pos_satelite")
 FILE = os.path.join(CARPETA, "historial_satelite.csv")
@@ -189,7 +188,6 @@ def interface(input_command):
                     print(f'Error de la API: {data}')
                 else:
                     config_positions(data['positions'])
-                    guardar_info(data.get('info', {}))
             #-----------------------------------------------------------
     except Exception as e:
         print(f'Error ({type(e).__name__}): {e}')
@@ -220,50 +218,15 @@ def to_NavSatFix(sat):
 #============================ class to look angles ==============================
 # data = [azimuth (deg), elevacion (deg), eclipsed (0.0 / 1.0)]
 def to_look_angles(sat):
-    msg = Float64MultiArray()
-    msg.data = [
-        float(sat.azimuth),
-        float(sat.elevacion),
-        float(sat.eclipsed),
-    ]
+    msg = Twist()
+    msg.linear.x = float(sat.latitud_satelite)
+    msg.linear.y = float(sat.longitud_satelite)
+    msg.linear.z = float(sat.altitud_satelite)
+    msg.angular.x = float(sat.eclipsed)
+    msg.angular.y =  float(sat.elevacion)
+    msg.angular.z = float(sat.azimuth)
+    
     return msg
-
-#============================ Info del satelite ==============================
-def guardar_info(info):
-    global info_json
-    info_json = json.dumps({'satid': info.get('satid', NORAD_ID),
-                            'satname': info.get('satname', '')})
-
-#============================ Cambiar satelite (ID NORAD) ==============================
-# Topico /satelite/norad_id (std_msgs/Int32). Solo en modo 3 (datos en vivo).
-def on_norad_id(msg):
-    global NORAD_ID, pos
-    nuevo = int(msg.data)
-
-    if MODE_COMUNICATION != 3:
-        node.get_logger().warn('Cambio de ID solo disponible en modo 3 (datos en vivo)')
-        return
-    if nuevo <= 0 or nuevo == NORAD_ID:
-        return
-
-    anterior = NORAD_ID
-    NORAD_ID = nuevo
-    try:
-        data = api_connect()
-    except Exception as e:
-        NORAD_ID = anterior
-        node.get_logger().error(f'No se pudo cambiar a {nuevo}: {e}')
-        return
-
-    if 'positions' not in data or not data['positions']:
-        NORAD_ID = anterior
-        node.get_logger().error(f'ID {nuevo} no valido o error de la API: {data}')
-        return
-
-    config_positions(data['positions'])
-    guardar_info(data.get('info', {}))
-    pos = 0
-    node.get_logger().info(f'Siguiendo satelite NORAD {NORAD_ID}')
 
 #============================ Timmer 1 read data ==============================
 def timmer_read_data():
@@ -276,9 +239,6 @@ def timmer_read_data():
 #============================ Timmer 2 publish ==============================
 def callTime():
     global pos
-
-    if pub_info is not None and info_json:
-        pub_info.publish(String(data=info_json))
 
     if pos >= len(satelite_lista):
         return
@@ -296,17 +256,14 @@ def main():
     global node
     global pub_fix
     global pub_look
-    global pub_info
 
     #Init ROS2
     rclpy.init()
 
     #create a node
     node = rclpy.create_node("n2yo_api")
-    pub_fix = node.create_publisher(NavSatFix, "/satelite", 10)
-    pub_look = node.create_publisher(Float64MultiArray, "/satelite/look_angles", 10)
-    pub_info = node.create_publisher(String, "/satelite/info", 10)
-    node.create_subscription(Int32, "/satelite/norad_id", on_norad_id, 10)
+    pub_fix = node.create_publisher(NavSatFix, "/navSatelite", 10)
+    pub_look = node.create_publisher(Twist, "/satelite", 10)
 
     print("==================================================")
     print("   I N T E R E S T E L A R     P R O Y E C T")

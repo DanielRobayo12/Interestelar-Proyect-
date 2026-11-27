@@ -30,6 +30,11 @@ SINGLE_VALUE_COMMANDS = frozenset({"A", "E", "P", "I", "D"})
 PAIR_VALUE_COMMANDS = frozenset({"G"})
 ALLOWED_COMMANDS = STANDALONE_COMMANDS | SINGLE_VALUE_COMMANDS | PAIR_VALUE_COMMANDS
 
+# Telemetría CSV del PIC: az_real, az_obj, az_err, el_real, el_obj, el_err
+CSV_TELEMETRY_FIELDS = 6
+CSV_AZ_REAL_IDX = 0
+CSV_EL_REAL_IDX = 3
+
 _NUMBER_RE = re.compile(r"^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$")
 _TELEMETRY_RE = re.compile(
     r"^\s*AZ\s*=\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*EL\s*=\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*$"
@@ -151,18 +156,35 @@ def build_standalone_command(prefix: str) -> str:
 def parse_telemetry_line(line: str) -> Optional[Tuple[float, float]]:
     """Parser aislado para líneas de telemetría recibidas desde el PIC.
 
-    Formato actual esperado:
-        AZ=<x>,EL=<y>
+    Formatos aceptados:
+        1) Firmware actual (CSV de 6 campos, 2 decimales):
+               az_real,az_obj,az_err,el_real,el_obj,el_err
+           -> se usan az_real (campo 0) y el_real (campo 3).
+        2) Formato antiguo:
+               AZ=<x>,EL=<y>
 
-    Devuelve ``(azimut, elevacion)`` como floats si la línea coincide con el
-    formato esperado, o ``None`` si la línea es otro tipo de mensaje (ACK,
-    estado, diagnóstico, etc.).
+    Devuelve ``(azimut, elevacion)`` como floats si la línea coincide con
+    alguno de los formatos, o ``None`` si la línea es otro tipo de mensaje
+    (ACK, estado, diagnóstico, etc.).
 
     Esta función está aislada deliberadamente para facilitar cambios futuros
     en el formato de telemetría del PIC sin modificar la interfaz ni el nodo ROS.
     """
     if not isinstance(line, str):
         return None
+
+    # Formato 1: CSV de 6 campos del firmware (az_real,az_obj,az_err,el_real,el_obj,el_err)
+    campos = line.strip().split(",")
+    if len(campos) >= CSV_TELEMETRY_FIELDS and all(
+        _NUMBER_RE.match(c.strip()) for c in campos
+    ):
+        azimut = float(campos[CSV_AZ_REAL_IDX])
+        elevacion = float(campos[CSV_EL_REAL_IDX])
+        if math.isfinite(azimut) and math.isfinite(elevacion):
+            return azimut, elevacion
+        return None
+
+    # Formato 2: AZ=<x>,EL=<y>
     match = _TELEMETRY_RE.match(line)
     if not match:
         return None
