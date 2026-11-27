@@ -1,9 +1,9 @@
 """Puente ROS 2 <-> PIC (serial 9600 8N1, comandos ASCII).
 
 ROS -> PIC
-  * /satelite/look_angles (Float64MultiArray, de n2yo_connect):
-        data = [azimut_deg, elevacion_deg, eclipsado]  ->  linea  G<az>,<el>
-    (source:=twist usa en cambio un Twist en /satelite, ver parametros)
+  * /satelite/look_angles (geometry_msgs/Twist, de n2yo_connect):
+        angular.z = azimut_deg, angular.y = elevacion_deg  ->  linea  G<az>,<el>
+    (source:=twist permite elegir otro topico/campos, ver parametros)
   * /satelite/cmd (String): se envia tal cual al PIC (A90, E30, P0.8, S, Z, X...)
 PIC -> ROS
   * Cada linea que manda el PIC se publica en /satelite/rx (String).
@@ -13,7 +13,7 @@ import math
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, TwistStamped
-from std_msgs.msg import Float64MultiArray, String
+from std_msgs.msg import String
 import serial
 
 MAX_LINE = 23   # LARGO_LINEA (24) del firmware menos el '\0'
@@ -78,7 +78,7 @@ class SerialBridge(Node):
         self.last_sent = None      # (az, el) ultimo enviado al PIC
 
         if self.source == 'look_angles':
-            self.create_subscription(Float64MultiArray, topic_in, self.on_look_angles, 10)
+            self.create_subscription(Twist, topic_in, self.on_look_angles, 10)
         else:
             twist_type = TwistStamped if self.stamped else Twist
             self.create_subscription(twist_type, topic_in, self.on_twist, 10)
@@ -164,12 +164,8 @@ class SerialBridge(Node):
                         get_field(twist, self.el_field))
 
     def on_look_angles(self, msg):
-        # data = [azimut, elevacion, eclipsado]  (n2yo_connect)
-        if len(msg.data) < 2:
-            self.get_logger().warn('look_angles con menos de 2 valores, ignorado',
-                                   throttle_duration_sec=5.0)
-            return
-        self.set_target(float(msg.data[0]), float(msg.data[1]))
+        # Contrato n2yo_connect: angular.z = azimut, angular.y = elevacion (grados)
+        self.set_target(float(msg.angular.z), float(msg.angular.y))
 
     def set_target(self, az, el):
         if not (math.isfinite(az) and math.isfinite(el)):

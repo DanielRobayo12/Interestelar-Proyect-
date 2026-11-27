@@ -6,8 +6,8 @@ Nodo ROS 2:
 - Publica el ID NORAD ``std_msgs/msg/Int32`` en ``/satelite/norad_id``.
 - Se suscribe a ``/satelite/rx`` (``std_msgs/msg/String``, líneas del PIC).
 - Se suscribe a ``/satelite/info`` (``std_msgs/msg/String``, JSON ``{"satid", "satname"}``).
-- Se suscribe a ``/satelite/look_angles`` (``std_msgs/msg/Float64MultiArray``,
-  ``[azimut_deg, elevacion_deg, eclipsado]``).
+- Se suscribe a ``/satelite/look_angles`` (``geometry_msgs/msg/Twist``:
+  ``angular.z`` = azimut_deg, ``angular.y`` = elevacion_deg, ``angular.x`` = eclipsado 0/1).
 - ``rclpy.spin`` corre en un ``QThread`` y se comunica con la UI únicamente
   mediante señales de Qt.
 """
@@ -57,7 +57,8 @@ from PySide6.QtWidgets import (
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.utilities import remove_ros_args
-from std_msgs.msg import Float64MultiArray, Int32, String
+from geometry_msgs.msg import Twist
+from std_msgs.msg import Int32, String
 
 if __package__:
     from .protocol import (
@@ -236,7 +237,7 @@ class SateliteRosNode(Node):
             String, info_topic, self._on_info_msg, 10
         )
         self._look_angles_sub = self.create_subscription(
-            Float64MultiArray, look_angles_topic, self._on_look_angles_msg, 10
+            Twist, look_angles_topic, self._on_look_angles_msg, 10
         )
 
         self._on_rx = on_rx
@@ -251,12 +252,11 @@ class SateliteRosNode(Node):
     def _on_info_msg(self, msg: String) -> None:
         self._on_sat_info(msg.data)
 
-    def _on_look_angles_msg(self, msg: Float64MultiArray) -> None:
-        if len(msg.data) < 3:
-            return
-        az = float(msg.data[0])
-        el = float(msg.data[1])
-        eclipsed_val = float(msg.data[2])
+    def _on_look_angles_msg(self, msg: Twist) -> None:
+        # Mapeo del nodo n2yo: angular.z = azimut, angular.y = elevacion, angular.x = eclipsado
+        az = float(msg.angular.z)
+        el = float(msg.angular.y)
+        eclipsed_val = float(msg.angular.x)
         if not (math.isfinite(az) and math.isfinite(el) and math.isfinite(eclipsed_val)):
             return
         self._on_look_angles(az, el, eclipsed_val >= 0.5)

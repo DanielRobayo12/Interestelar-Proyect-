@@ -38,6 +38,8 @@ setup(
         'console_scripts': [
             'n2yo_connect = interestelar_pkg.n2yo_connect:main',
             'uart_bridge = interestelar_pkg.uart_bridge:main',
+            'app = interestelar_pkg.interfaz.app:main',
+            'joints_pub = interestelar_pkg.joints_pub:main',
         ],
     },
 )
